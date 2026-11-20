@@ -93,35 +93,62 @@ function download(filename,body,type='text/csv;charset=utf-8'){const url=URL.cre
 function exportTrip(t){const m=(t.motion||[]).map(x=>({...x,trip_id:t.id,suspension_mode:t.suspension_mode||'Unspecified',record_type:'motion',latitude:'',longitude:'',accuracy_m:'',speed_mps:'',altitude_m:''})),g=(t.gps||[]).map(x=>({...x,trip_id:t.id,suspension_mode:t.suspension_mode||'Unspecified',record_type:'gps',x:'',y:'',z:'',gravity_removed:''}));return csv([...m,...g].sort((a,b)=>a.elapsed_ms-b.elapsed_ms),['trip_id','suspension_mode','record_type','time','elapsed_ms','x','y','z','gravity_removed','latitude','longitude','accuracy_m','speed_mps','altitude_m'])}
 function distance(a,b){const r=6371000,lat1=a.latitude*Math.PI/180,lat2=b.latitude*Math.PI/180,dlat=lat2-lat1,dlon=(b.longitude-a.longitude)*Math.PI/180,h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;return 2*r*Math.asin(Math.min(1,Math.sqrt(h)))}
 function goodPair(a,b){return a&&b&&Number.isFinite(a.latitude)&&Number.isFinite(b.latitude)&&Number.isFinite(a.longitude)&&Number.isFinite(b.longitude)&&distance(a,b)<180&&Math.abs(Date.parse(b.time)-Date.parse(a.time))<=15000&&(a.accuracy_m==null||a.accuracy_m<100)&&(b.accuracy_m==null||b.accuracy_m<100)}
-let googleLoading=false,googleLoaded=false,googleInfo=null,mapEngine='none',mapReady=false,osmLayer=null;
-function clearLines(lines){if(Array.isArray(lines)){lines.forEach(x=>{if(x.setMap)x.setMap(null);else if(x.remove)x.remove()});lines.length=0}}
-function setMapStatus(msg){$('mapStatus').textContent=msg}
-function initMap(){liveLayer=[];trackLayer=[];const saved=readPreference('cr_google_maps_key')||'';$('googleKey').value=saved;loadLeaflet()}
-function loadLeaflet(){if(window.L)buildLeaflet();else setMapStatus('Map library could not load')}
-function buildLeaflet(){
- if(mapReady&&mapEngine==='leaflet')return;
- const el=$('map');el.replaceChildren();
- map=L.map(el,{zoomControl:false,zoomSnap:.5,tapTolerance:12}).setView([50.041,22.004],12);
- mapEngine='leaflet';mapReady=true;liveLayer=[];trackLayer=[];
- L.control.zoom({position:'topright'}).addTo(map);
- L.control.scale({imperial:false}).addTo(map);
- useStreetTiles(false);drawMap(true);
- new ResizeObserver(()=>{if(mapEngine==='leaflet')map.invalidateSize()}).observe(el);
+let googleLoading=false,googleInfo=null,mapReady=false;
+function clearLines(lines){if(Array.isArray(lines)){lines.forEach(line=>line.setMap(null));lines.length=0}}
+function setMapStatus(message){$('mapStatus').textContent=message}
+function initMap(){
+ liveLayer=[];trackLayer=[];
+ const configured=window.COMFORTROUTE_GOOGLE_MAPS_API_KEY?.trim();
+ const key=configured&&configured!=='YOUR_RESTRICTED_BROWSER_KEY'
+  ?configured:readPreference('cr_google_maps_key');
+ if(key)loadGoogleMaps(key);
+ else setMapStatus('Google Maps setup required. Set your browser key in docs/maps-config.js.');
 }
-function useStreetTiles(light){
- if(osmLayer)osmLayer.remove();
- const url=light?'https://tile.openstreetmap.org/{z}/{x}/{y}.png':'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
- osmLayer=L.tileLayer(url,{maxZoom:19,attribution:light?'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors':'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>'});
- osmLayer.on('tileerror',()=>setMapStatus('Some street tiles are unavailable. GPS routes remain visible.'));
- osmLayer.on('tileload',()=>setMapStatus(light?'OpenStreetMap':'CARTO · OpenStreetMap'));
- osmLayer.addTo(map);
- selectMapTab(light?'lightMap':'osmMap');
+function loadGoogleMaps(key){
+ if(googleLoading||mapReady)return;
+ googleLoading=true;
+ setMapStatus('Loading Google Maps…');
+ window.gm_authFailure=()=>{
+  googleLoading=false;mapReady=false;
+  setMapStatus('Google Maps authorization failed. Check website restrictions, API access and billing.');
+ };
+ window.crGoogleReady=()=>{
+  const el=$('map');
+  map=new google.maps.Map(el,{
+   center:{lat:50.041,lng:22.004},zoom:12,mapTypeId:'roadmap',
+   streetViewControl:false,fullscreenControl:true,gestureHandling:'greedy',mapTypeControl:false
+  });
+  googleInfo=new google.maps.InfoWindow();
+  googleLoading=false;mapReady=true;
+  setMapStatus('');
+  if(trip)for(let i=1;i<trip.gps.length;i++){
+   const pair=trip.gps.slice(i-1,i+1);
+   if(goodPair(...pair))addSegment(pair,'#36dbb8',true);
+  }
+  drawMap(true);
+ };
+ const script=document.createElement('script');
+ script.src='https://maps.googleapis.com/maps/api/js?'+new URLSearchParams({
+  key,callback:'crGoogleReady',loading:'async',v:'weekly'
+ });
+ script.async=true;
+ script.onerror=()=>{
+  googleLoading=false;
+  setMapStatus('Could not load Google Maps. Check your connection and reload.');
+ };
+ document.head.append(script);
 }
-function loadGoogleMaps(key){key=key.trim();if(!key){setMapStatus('Enter a Google Maps API key');return}if(googleLoading){setMapStatus('Google Maps loading…');return}if(googleLoaded){buildGoogleMap();return}googleLoading=true;setMapStatus('Loading Google Maps…');window.crGoogleReady=()=>{googleLoading=false;googleLoaded=true;buildGoogleMap()};window.gm_authFailure=()=>{googleLoading=false;setMapStatus('Google authorization failed. Check billing / referrer / API restrictions.')};const script=document.createElement('script');script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback=crGoogleReady&loading=async&v=weekly';script.async=true;script.onerror=()=>{googleLoading=false;setMapStatus('Google script failed. Streets map remains available.');if(!mapReady)loadLeaflet()};document.head.append(script)}
-function buildGoogleMap(){if(!window.google?.maps)return;clearLines(trackLayer);clearLines(liveLayer);if(mapEngine==='leaflet'&&map)map.remove();mapEngine='google';mapReady=true;const el=$('map');el.replaceChildren();map=new google.maps.Map(el,{center:{lat:50.041,lng:22.004},zoom:12,mapTypeId:'roadmap',streetViewControl:false,fullscreenControl:true,gestureHandling:'greedy',mapTypeControl:false});googleInfo=new google.maps.InfoWindow();liveLayer=[];trackLayer=[];setMapStatus('Google Maps · roads');selectMapTab('roadMap');drawMap(true)}
-function selectMapTab(id){for(const x of ['osmMap','lightMap','roadMap','altMap'])$(x).classList.toggle('selected',x===id)}
-function setTiles(kind){if(kind==='osm'||kind==='light'){if(mapEngine!=='leaflet')buildLeaflet();if(mapEngine==='leaflet')useStreetTiles(kind==='light');return}if(!googleLoaded){const key=$('googleKey').value.trim()||readPreference('cr_google_maps_key');if(key){loadGoogleMaps(key);return}setMapStatus('Google Maps requires an API key · open settings below');$('map').scrollIntoView({block:'center',behavior:'smooth'});return}if(mapEngine!=='google')buildGoogleMap();map.setMapTypeId(kind==='satellite'?'satellite':'roadmap');selectMapTab(kind==='satellite'?'altMap':'roadMap');setMapStatus(kind==='satellite'?'Google Maps · satellite':'Google Maps · roads')}
-function addSegment(pair,stroke,isLive=false,desc=''){if(!mapReady)return;let line;if(mapEngine==='google'){line=new google.maps.Polyline({path:pair.map(g=>({lat:g.latitude,lng:g.longitude})),strokeColor:stroke,strokeWeight:isLive?6:5,strokeOpacity:.88,map});if(!isLive&&desc)line.addListener('click',e=>{googleInfo.setContent(desc);googleInfo.setPosition(e.latLng);googleInfo.open({map})})}else if(mapEngine==='leaflet'){line=L.polyline(pair.map(g=>[g.latitude,g.longitude]),{color:stroke,weight:isLive?6:5,opacity:.95}).addTo(map);if(desc)line.bindPopup(desc)}if(line)(isLive?liveLayer:trackLayer).push(line)}
+function addSegment(pair,stroke,isLive=false,desc=''){
+ if(!mapReady)return;
+ const line=new google.maps.Polyline({
+  path:pair.map(point=>({lat:point.latitude,lng:point.longitude})),
+  strokeColor:stroke,strokeWeight:isLive?6:5,strokeOpacity:.88,map
+ });
+ if(!isLive&&desc)line.addListener('click',event=>{
+  googleInfo.setContent(desc);googleInfo.setPosition(event.latLng);googleInfo.open({map});
+ });
+ (isLive?liveLayer:trackLayer).push(line);
+}
 function selectedTrips(){const id=$('routeFilter').value;return id?allTrips.filter(t=>t.id===id):allTrips}
 function routeSections(t){
  if(t.sections)return t.sections.map(part=>part.map(p=>({
@@ -140,13 +167,10 @@ function fitAll(){
  if(!mapReady)return;
  const coords=selectedTrips().flatMap(t=>routeSections(t).flat());
  if(!coords.length)return;
- if(mapEngine==='google'){
-  const bounds=new google.maps.LatLngBounds();
-  coords.forEach(p=>bounds.extend({lat:p.latitude,lng:p.longitude}));
-  map.fitBounds(bounds,40);
- }else if(mapEngine==='leaflet'){
-  map.fitBounds(coords.map(p=>[p.latitude,p.longitude]),{padding:[26,26],maxZoom:16});
- }
+ if(!$('map').clientWidth)return;
+ const bounds=new google.maps.LatLngBounds();
+ coords.forEach(p=>bounds.extend({lat:p.latitude,lng:p.longitude}));
+ map.fitBounds(bounds,40);
 }
 function cell(g){const lat=g.latitude,lon=g.longitude;if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;const y=Math.floor(lat*111320/50),x=Math.floor(lon*111320*Math.cos(50.04*Math.PI/180)/50);return x+':'+y}
 function drawMap(fit=false){
@@ -190,7 +214,7 @@ function exportGeo(){
  download('comfort-route-city-map.geojson',JSON.stringify({type:'FeatureCollection',features},null,2),'application/geo+json');
 }
 async function renderTrips(){try{allTrips=(await store('read')).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started));const el=$('trips');el.replaceChildren();const filter=$('routeFilter'),previous=filter.value;filter.replaceChildren(new Option('All drives',''));for(const t of allTrips)filter.add(new Option(new Date(t.started).toLocaleString('en-GB',{timeZone:'Europe/Warsaw'}),t.id));if(allTrips.some(t=>t.id===previous))filter.value=previous;if(!allTrips.length)el.textContent='No drives saved yet.';for(const t of allTrips){const r=document.createElement('div');r.className='trip';const desc=document.createElement('div');desc.className='trip-desc';const title=document.createElement('strong');title.textContent=new Date(t.started).toLocaleString();const sub=document.createElement('div');sub.className='trip-sub';sub.textContent=`${t.suspension_mode||'Mode unknown'} · ${(t.motion||[]).length} motion · ${(t.gps||[]).length} GPS`;desc.append(title,sub);const actions=document.createElement('div');actions.className='trip-actions';const exp=document.createElement('button');exp.className='secondary';exp.textContent='CSV';exp.onclick=()=>download('comfort-route-'+t.id+'.csv',exportTrip(t));const del=document.createElement('button');del.className='delete';del.textContent='Delete';del.onclick=async()=>{if(confirm('Permanently delete this drive? Export a backup first.')){await store('delete',t.id);renderTrips()}};actions.append(exp,del);r.append(desc,actions);el.append(r)}renderRecent();drawMap(true)}catch(e){notify('Storage error: '+e.message)}}
-document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{if(running)return;$('mode').value=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b))}));$('start').addEventListener('click',start);$('stop').addEventListener('click',stop);$('wakeButton').addEventListener('click',requestWake);$('fitMap').addEventListener('click',fitAll);$('roadMap').addEventListener('click',()=>setTiles('google'));$('altMap').addEventListener('click',()=>setTiles('satellite'));$('osmMap').addEventListener('click',()=>setTiles('osm'));$('saveGoogleKey').addEventListener('click',()=>{const k=$('googleKey').value.trim();if(!k)return notify('Paste your Google Maps API key first');localStorage.setItem('cr_google_maps_key',k);if(googleLoaded){notify('Key saved. Reload the app if you changed keys.');buildGoogleMap()}else loadGoogleMaps(k)});$('exportGeo').addEventListener('click',exportGeo);$('exportAll').addEventListener('click',async()=>{const ts=await store('read');if(!ts.length)return notify('No drives to export');for(const t of ts)download('comfort-route-'+t.id+'.csv',exportTrip(t))});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&running&&!wakeLock)requestWake();if(document.visibilityState==='hidden'&&running)notify('App backgrounded: iOS may suspend recording. Keep it visible.')});window.addEventListener('resize',draw);initMap();initializeHistory();draw();if(/^https?:$/.test(location.protocol)&&'serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{if(running)return;$('mode').value=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b))}));$('start').addEventListener('click',start);$('stop').addEventListener('click',stop);$('wakeButton').addEventListener('click',requestWake);$('fitMap').addEventListener('click',fitAll);$('exportGeo').addEventListener('click',exportGeo);$('exportAll').addEventListener('click',async()=>{const ts=await store('read');if(!ts.length)return notify('No drives to export');for(const t of ts)download('comfort-route-'+t.id+'.csv',exportTrip(t))});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&running&&!wakeLock)requestWake();if(document.visibilityState==='hidden'&&running)notify('App backgrounded: iOS may suspend recording. Keep it visible.')});window.addEventListener('resize',draw);initMap();initializeHistory();draw();if(/^https?:$/.test(location.protocol)&&'serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
 async function initializeHistory(){
  try{
@@ -276,7 +300,6 @@ async function importFiles(files){
 }
 
 $('routeFilter').onchange=()=>drawMap(true);
-$('lightMap').onclick=()=>setTiles('light');
 $('touchLock').onclick=()=>{
  $('lockedTime').textContent=$('elapsed').textContent;
  $('lockDialog').showModal();
@@ -297,9 +320,7 @@ function showView(view){
  for(const tab of document.querySelectorAll('.tab')){
   tab.setAttribute('aria-pressed',String(tab.dataset.view===view));
  }
- if((view==='map'||view==='record')&&mapEngine==='leaflet'){
-  requestAnimationFrame(()=>{map.invalidateSize();fitAll()});
- }
+ if(view==='map'||view==='record')requestAnimationFrame(fitAll);
  if(view==='record')requestAnimationFrame(draw);
 }
 

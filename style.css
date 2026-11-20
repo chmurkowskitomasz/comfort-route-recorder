@@ -81,10 +81,6 @@ body.recording .record-dot { animation: pulse 1.4s infinite alternate; }
 .map-frame { height: 278px; position: relative; border-block: 1px solid #385464; }
 #map { height: 100%; width: 100%; background: #151e2a; z-index: 0; }
 .map-tools { position: absolute; top: 7px; right: 8px; z-index: 401; display: grid; gap: 5px; }
-.map-tools button, .leaflet-bar a { background: #041521f2 !important; color: #f0faff !important; border: 1px solid #426577 !important; border-radius: 9px !important; }
-.map-frame .leaflet-top.leaflet-right .leaflet-control-zoom { margin: 86px 8px 0 0; display: grid; gap: 1px; border: 0; }
-.map-frame .leaflet-control-attribution { background: #061620e8; color: #d5eaf5; }
-.map-frame .leaflet-control-attribution a { color: #d5eaf5; }
 .legend { display: flex; justify-content: space-evenly; gap: 5px; padding: 7px 4px; font-size: 10px; flex-wrap: wrap; }
 .legend span { display: flex; align-items: center; gap: 5px; }
 .legend i { width: 11px; height: 11px; border-radius: 50%; background: #24f03d; }
@@ -142,3 +138,6 @@ dialog h3 { margin-top: 15px; }dialog p,dialog label { font-size: 13px; line-hei
  #mapView { grid-column: 2; grid-row: 2 / span 3; align-self: start; }
  .standalone { grid-row: 4; }
 }
+
+.map-tools button { background:#041521f2; border:1px solid #426577; border-radius:9px; }
+#mapStatus:not(:empty) { padding:8px 12px; }
