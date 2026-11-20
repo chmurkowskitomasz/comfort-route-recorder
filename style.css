@@ -141,3 +141,7 @@ dialog h3 { margin-top: 15px; }dialog p,dialog label { font-size: 13px; line-hei
 
 .map-tools button { background:#041521f2; border:1px solid #426577; border-radius:9px; }
 #mapStatus:not(:empty) { padding:8px 12px; }
+
+#locationStatus:not(:empty) { padding:8px 12px; color:#b8d1df; font-size:12px; }
+#locateMe:disabled { opacity:.5; }
+#fitMap { margin-top:8px; border:1px solid #45697a; border-radius:7px; padding:7px 9px; background:#0d2a39; }

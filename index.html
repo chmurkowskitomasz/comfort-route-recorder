@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ComfortRoute | Drive Intelligence</title>
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon.png">
-<link rel="stylesheet" href="style.css?v=33">
+<link rel="stylesheet" href="style.css?v=34">
 </head>
 <body data-view="record"><main class="shell">
 <header class="mast">
@@ -41,9 +41,9 @@
 <section class="panel road-panel">
 <header class="road-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0z"/><circle cx="12" cy="10" r="2"/></svg><div><h2>Road Mapping – Rzeszów</h2><p>Your recorded routes and road comfort coverage.</p></div></header>
 <div class="map-frame"><div id="map" aria-label="Interactive Rzeszów GPS map"></div>
-<div class="map-tools"><button class="icon-button" id="layerToggle" aria-controls="mapOptions" aria-expanded="false" aria-label="Route filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 9-4 9 4-9 4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg></button><button class="icon-button" id="fitMap" aria-label="Fit routes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button></div></div>
+<div class="map-tools"><button class="icon-button" id="layerToggle" aria-controls="mapOptions" aria-expanded="false" aria-label="Route filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 9-4 9 4-9 4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg></button><button class="icon-button" id="locateMe" aria-label="Locate me" title="Locate me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button></div></div>
 <div class="legend"><span><i></i>Smoother</span><span><i></i>Medium</span><span><i></i>Rougher</span><span><i></i>GPS only</span></div>
-<div id="mapOptions" hidden><label class="filter">Show <select id="routeFilter"><option value="">All drives</option></select></label></div><p id="mapStatus" role="status"></p>
+<div id="mapOptions" hidden><label class="filter">Show <select id="routeFilter"><option value="">All drives</option></select></label><button id="fitMap" type="button">Fit routes</button></div><p id="mapStatus" role="status"></p><p id="locationStatus" role="status"></p>
 </section>
 <section class="panel coverage-card"><div class="coverage-main"><div class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="17" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M15 5H7a3 3 0 0 0 0 6h10a3 3 0 0 1 0 6H7"/></svg></div><div><span>City Coverage</span><strong id="coverageNumber">0</strong><small>mapped cells</small></div></div><dl><div><dt>Recorded GPS distance</dt><dd id="mappedDistance">0.0 km</dd></div><div><dt>Recorded sections</dt><dd id="sectionTotal">0</dd></div><div><dt>Recording sessions</dt><dd id="driveTotal">0</dd></div></dl></section>
 <section class="panel recent"><header><h2>Recent Drives</h2><button data-view="archive">See All ›</button></header><div id="recentTrips"></div></section>
@@ -63,5 +63,5 @@
 
 <p>Safari needs to stay visible for recording. Use the native iPhone app for GPS while the iPhone display is locked.</p>
 <form method="dialog"><button>Done</button></form></dialog>
-<script src="maps-config.js?v=33"></script><script src="rzeszow.js"></script><script src="app.js?v=33"></script>
+<script src="maps-config.js?v=34"></script><script src="rzeszow.js"></script><script src="app.js?v=34"></script>
 </body></html>

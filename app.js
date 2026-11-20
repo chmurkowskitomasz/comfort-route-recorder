@@ -149,6 +149,59 @@ function addSegment(pair,stroke,isLive=false,desc=''){
  });
  (isLive?liveLayer:trackLayer).push(line);
 }
+let locationDot=null,locationAccuracy=null;
+function locateMe(){
+ const button=$('locateMe');
+ const status=$('locationStatus');
+ if(!window.isSecureContext){
+  status.textContent='Open ComfortRoute over HTTPS to use your location.';
+  return;
+ }
+ if(!navigator.geolocation){
+  status.textContent='Location services are unavailable in this browser.';
+  return;
+ }
+ if(!mapReady){
+  status.textContent='Google Maps must be ready before you can locate yourself.';
+  return;
+ }
+ button.disabled=true;
+ status.textContent='Getting your location…';
+ navigator.geolocation.getCurrentPosition(position=>{
+  button.disabled=false;
+  if(!mapReady){
+   status.textContent='Location found, but Google Maps is unavailable.';
+   return;
+  }
+  const {latitude,longitude,accuracy}=position.coords;
+  const center={lat:latitude,lng:longitude};
+  if(!locationDot){
+   locationDot=new google.maps.Marker({
+    map,title:'Your location',clickable:false,zIndex:1000,
+    icon:{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:'#1688ff',
+     fillOpacity:1,strokeColor:'#ffffff',strokeWeight:2}
+   });
+   locationAccuracy=new google.maps.Circle({
+    map,clickable:false,strokeColor:'#1688ff',strokeOpacity:0.4,
+    strokeWeight:1,fillColor:'#1688ff',fillOpacity:0.12
+   });
+  }
+  locationDot.setPosition(center);
+  locationAccuracy.setCenter(center);
+  locationAccuracy.setRadius(accuracy);
+  map.setCenter(center);
+  map.setZoom(accuracy<=100?17:accuracy<=500?15:13);
+  status.textContent='Location found · accuracy ±'+Math.round(accuracy)+' m';
+ },error=>{
+  button.disabled=false;
+  const messages={
+   1:'Location access was denied. Allow location for this site and try again.',
+   2:'Your position is unavailable. Check that Location Services is on and try again.',
+   3:'Location request timed out. Try again where your iPhone has a clearer view of the sky.'
+  };
+  status.textContent=messages[error.code]||'Could not get your location. Please try again.';
+ },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
 function selectedTrips(){const id=$('routeFilter').value;return id?allTrips.filter(t=>t.id===id):allTrips}
 function routeSections(t){
  if(t.sections)return t.sections.map(part=>part.map(p=>({
@@ -214,7 +267,7 @@ function exportGeo(){
  download('comfort-route-city-map.geojson',JSON.stringify({type:'FeatureCollection',features},null,2),'application/geo+json');
 }
 async function renderTrips(){try{allTrips=(await store('read')).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started));const el=$('trips');el.replaceChildren();const filter=$('routeFilter'),previous=filter.value;filter.replaceChildren(new Option('All drives',''));for(const t of allTrips)filter.add(new Option(new Date(t.started).toLocaleString('en-GB',{timeZone:'Europe/Warsaw'}),t.id));if(allTrips.some(t=>t.id===previous))filter.value=previous;if(!allTrips.length)el.textContent='No drives saved yet.';for(const t of allTrips){const r=document.createElement('div');r.className='trip';const desc=document.createElement('div');desc.className='trip-desc';const title=document.createElement('strong');title.textContent=new Date(t.started).toLocaleString();const sub=document.createElement('div');sub.className='trip-sub';sub.textContent=`${t.suspension_mode||'Mode unknown'} · ${(t.motion||[]).length} motion · ${(t.gps||[]).length} GPS`;desc.append(title,sub);const actions=document.createElement('div');actions.className='trip-actions';const exp=document.createElement('button');exp.className='secondary';exp.textContent='CSV';exp.onclick=()=>download('comfort-route-'+t.id+'.csv',exportTrip(t));const del=document.createElement('button');del.className='delete';del.textContent='Delete';del.onclick=async()=>{if(confirm('Permanently delete this drive? Export a backup first.')){await store('delete',t.id);renderTrips()}};actions.append(exp,del);r.append(desc,actions);el.append(r)}renderRecent();drawMap(true)}catch(e){notify('Storage error: '+e.message)}}
-document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{if(running)return;$('mode').value=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b))}));$('start').addEventListener('click',start);$('stop').addEventListener('click',stop);$('wakeButton').addEventListener('click',requestWake);$('fitMap').addEventListener('click',fitAll);$('exportGeo').addEventListener('click',exportGeo);$('exportAll').addEventListener('click',async()=>{const ts=await store('read');if(!ts.length)return notify('No drives to export');for(const t of ts)download('comfort-route-'+t.id+'.csv',exportTrip(t))});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&running&&!wakeLock)requestWake();if(document.visibilityState==='hidden'&&running)notify('App backgrounded: iOS may suspend recording. Keep it visible.')});window.addEventListener('resize',draw);initMap();initializeHistory();draw();if(/^https?:$/.test(location.protocol)&&'serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{if(running)return;$('mode').value=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b))}));$('start').addEventListener('click',start);$('stop').addEventListener('click',stop);$('wakeButton').addEventListener('click',requestWake);$('fitMap').addEventListener('click',fitAll);$('locateMe').addEventListener('click',locateMe);$('exportGeo').addEventListener('click',exportGeo);$('exportAll').addEventListener('click',async()=>{const ts=await store('read');if(!ts.length)return notify('No drives to export');for(const t of ts)download('comfort-route-'+t.id+'.csv',exportTrip(t))});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&running&&!wakeLock)requestWake();if(document.visibilityState==='hidden'&&running)notify('App backgrounded: iOS may suspend recording. Keep it visible.')});window.addEventListener('resize',draw);initMap();initializeHistory();draw();if(/^https?:$/.test(location.protocol)&&'serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
 async function initializeHistory(){
  try{
