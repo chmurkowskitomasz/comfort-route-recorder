@@ -208,13 +208,45 @@ function routeSections(t){
   latitude:p.lat,longitude:p.lon,rms:p.rms,time:new Date(p.ts*1000).toISOString()
  })));
  const parts=[];let part=[];
- for(const point of t.gps||[]){
+ for(const point of (t.gps||[]).slice().sort((a,b)=>Date.parse(a.time)-Date.parse(b.time))){
   if(!Number.isFinite(point.latitude)||!Number.isFinite(point.longitude)||Math.abs(point.latitude)>90||Math.abs(point.longitude)>180||point.accuracy_m>100)continue;
   if(part.length&&!goodPair(part.at(-1),point)){if(part.length>1)parts.push(part);part=[]}
   part.push(point);
  }
  if(part.length>1)parts.push(part);
  return parts;
+}
+const defaultComfortThresholds=[0.65,1.205];
+function scoredRouteSections(trip,parts){
+ const samples=(trip.motion||[])
+  .filter(sample=>sample.gravity_removed===true&&Number.isFinite(sample.z))
+  .map(sample=>({time:Date.parse(sample.time),z:sample.z}))
+  .filter(sample=>Number.isFinite(sample.time))
+  .sort((a,b)=>a.time-b.time);
+ if(!samples.length)return parts;
+ let first=0,last=0;
+ const squareSums=[0];
+ for(const sample of samples)squareSums.push(squareSums.at(-1)+sample.z**2);
+ return parts.map(part=>{
+  const sectionStart=Date.parse(part[0].time),sectionEnd=Date.parse(part.at(-1).time);
+  return part.map((point,index)=>{
+   if(!index||Number.isFinite(point.rms))return point;
+   const start=Date.parse(part[index-1].time),end=Date.parse(point.time);
+   if(end<=start)return point;
+   // Fast GPS intervals can have too few samples. Use at most a one-second
+   // window for these intervals, with no borrowing across a break in the route.
+   const center=(start+end)/2;
+   const from=Math.max(sectionStart,Math.min(start,center-500));
+   const to=Math.min(sectionEnd,Math.max(end,center+500));
+   while(first<samples.length&&samples[first].time<from)first++;
+   last=Math.max(first,last);
+   while(last<samples.length&&samples[last].time<=to)last++;
+   const count=last-first;
+   if(count<3)return point;
+   const rms=Math.sqrt((squareSums[last]-squareSums[first])/count);
+   return {...point,rms};
+  });
+ });
 }
 function fitAll(){
  if(!mapReady)return;
@@ -248,10 +280,11 @@ function drawMap(fit=false){
  if(!mapReady)return;
  clearLines(trackLayer);
  for(const t of visible){
-  for(const part of routeSections(t)){
+  const thresholds=t.thresholds||defaultComfortThresholds;
+  for(const part of scoredRouteSections(t,routeSections(t))){
    for(let i=1;i<part.length;i++){
     const p=part[i],r=p.rms;
-    const stroke=r==null?'#78aefc':r<t.thresholds[0]?'#24f03d':r<t.thresholds[1]?'#ffce18':'#ff4b45';
+    const stroke=r==null?'#78aefc':r<thresholds[0]?'#24f03d':r<thresholds[1]?'#ffab32':'#ff4b45';
     const info=new Date(p.time).toLocaleString('en-GB',{timeZone:'Europe/Warsaw'})+' · '+(r==null?'GPS only':r.toFixed(2)+' m/s² vibration RMS');
     addSegment([part[i-1],p],stroke,false,info);
    }
@@ -330,7 +363,7 @@ async function importFiles(files){
     }
     if(native||row.record_type==='motion'){
      const x=num(native?row.user_ax_m_s2:row.x),y=num(native?row.user_ay_m_s2:row.y),z=num(native?row.vertical_accel_m_s2:row.z);
-     if([x,y,z].every(v=>v!==null))drive.motion.push({time,elapsed_ms,x,y,z,gravity_removed:native||row.gravity_removed==='true'});
+     if(z!==null)drive.motion.push({time,elapsed_ms,x,y,z,gravity_removed:native||/^(true|1)$/i.test(row.gravity_removed?.trim()||'')});
     }
    }
    if(![...drives.values()].some(drive=>drive.gps.length||drive.motion.length))throw Error('no valid GPS or motion rows');

@@ -84,7 +84,7 @@ body.recording .record-dot { animation: pulse 1.4s infinite alternate; }
 .legend { display: flex; justify-content: space-evenly; gap: 5px; padding: 7px 4px; font-size: 10px; flex-wrap: wrap; }
 .legend span { display: flex; align-items: center; gap: 5px; }
 .legend i { width: 11px; height: 11px; border-radius: 50%; background: #24f03d; }
-.legend span:nth-child(2) i { background: #ffce18; }.legend span:nth-child(3) i { background: #ff4b45; }.legend span:nth-child(4) i { background: #78aefc; }
+.legend span:nth-child(2) i { background: #ffab32; }.legend span:nth-child(3) i { background: #ff4b45; }.legend span:nth-child(4) i { background: #78aefc; }
 .coverage-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; margin: 0 7px 8px; }
 .coverage-main { display: flex; align-items: center; gap: 9px; font-size: 11px; }
 .coverage-main strong { display: block; font-size: 25px; line-height: 1.05; }
